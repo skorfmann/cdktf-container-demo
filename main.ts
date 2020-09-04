@@ -1,45 +1,40 @@
 import { Construct } from 'constructs';
-import { App, TerraformStack, TerraformOutput } from 'cdktf';
-import { AwsProvider, EcrRepository, DataAwsRegion } from "@cdktf/provider-aws"
-import * as Null from "@cdktf/provider-null"
-import * as hashdirectory from 'hashdirectory';
+import { App, TerraformStack } from 'cdktf';
+import { AwsProvider, EcsCluster  } from '@cdktf/provider-aws'
+import { AwsEcrAsset, AwsVpc, AwsRegions, AwsEcsFargateService } from './constructs'
 import * as path from 'path';
 
 class MyStack extends TerraformStack {
   constructor(scope: Construct, name: string) {
     super(scope, name);
 
-    const folder = path.join(__dirname, 'app')
-
-    const compatibleName = name.toLowerCase();
+    const region = AwsRegions.frankfurt
 
     new AwsProvider(this, 'default', {
-      region: 'eu-central-1'
+      region: region.code
     })
 
-    const ecrRepository = new EcrRepository(this, 'dockerAsset', {
-      name: compatibleName,
-    });
+    const vpc = new AwsVpc(this, 'app-network', {
+      region,
+      cidrBlock: "10.200.0.0/16"
+    })
 
-    const buildAndPush = new Null.Resource(this, 'buildAndPush', {
-      dependsOn: [ecrRepository],
-      triggers: {
-        folderhash: hashdirectory.sync(folder),
-      },
-    });
+    const ecrAsset =new AwsEcrAsset(this, 'app-image', {
+      region,
+      name: 'cdktf-demo',
+      path: path.join(__dirname, 'app')
+    })
 
-    const imageName = ecrRepository.repositoryUrl;
-    // needs AWS CLI v2 - Should add a check for presence or provide Docker container for building
-    const command = `
-      aws ecr get-login-password --region ${new DataAwsRegion(this, 'CurrentRegion').name} |
-      docker login --username AWS --password-stdin ${imageName} &&
-      cd ${folder} && docker build -t ${imageName} . &&
-      docker push ${imageName}
-    `;
-    buildAndPush.addOverride('provisioner.local-exec.command', command);
+    const cluster = new EcsCluster(this, 'main', {
+      name: 'cdktf-demo'
+    })
 
-    new TerraformOutput(this, 'ecr', {
-      value: ecrRepository.repositoryUrl
+    new AwsEcsFargateService(this, 'app-service', {
+      serviceName: 'cdktf-demo',
+      ecrAsset,
+      cluster,
+      region,
+      vpc
     })
   }
 }

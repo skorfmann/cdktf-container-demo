@@ -1,0 +1,5 @@
+{
+  "name": "cdktf-demo",
+  "cpu": 256,
+  "memory": 512
+}

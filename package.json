@@ -23,9 +23,11 @@
   "dependencies": {
     "@cdktf/provider-aws": "0.0.31",
     "@cdktf/provider-null": "^0.0.14",
+    "@eryldor/cidr": "^1.0.5",
     "cdktf": "0.0.17",
     "constructs": "^3.0.4",
-    "hashdirectory": "^0.1.0"
+    "hashdirectory": "^0.1.0",
+    "iam-floyd": "^0.55.0"
   },
   "devDependencies": {
     "@types/node": "^14.6.3",
