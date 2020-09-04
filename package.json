@@ -14,6 +14,7 @@
     "compile": "tsc --pretty",
     "watch": "tsc -w",
     "test": "echo ok",
+    "plan": "cd cdktf.out && terraform plan -state ../terraform.tfstate",
     "upgrade": "npm i cdktf@latest cdktf-cli@latest",
     "upgrade:next": "npm i cdktf@next cdktf-cli@next"
   },
