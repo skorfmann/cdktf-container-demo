@@ -11,6 +11,53 @@ export interface AwsEcsFargateServiceConfig {
   vpc: AwsVpc;
 }
 
+export interface AwsSecurityGroupConfig {
+  vpc: AwsVpc;
+}
+
+
+export class AwsSecurityGroup extends Construct {
+  public readonly resource: SecurityGroup;
+
+  constructor(scope: Construct, name: string, config: AwsSecurityGroupConfig) {
+    super(scope, name)
+
+    this.resource = new SecurityGroup(this, 'service-security-group', {
+      namePrefix: 'cdktf-demo',
+      vpcId: config.vpc.resource.id!,
+      ingress: [{
+        protocol: 'tcp',
+        fromPort: 80,
+        toPort: 80,
+        cidrBlocks: ['0.0.0.0/0'],
+        ipv6CidrBlocks: ["::/0"]
+      }],
+      egress: [{
+        protocol: '-1',
+        fromPort: 0,
+        toPort: 0,
+        cidrBlocks: ['0.0.0.0/0'],
+        ipv6CidrBlocks: ["::/0"]
+      }]
+    })
+
+    // workaround for https://github.com/hashicorp/terraform-cdk/issues/234
+    this.resource.addOverride("ingress.0", {
+      description: null,
+      prefix_list_ids: null,
+      security_groups: null,
+      self: null
+    })
+
+    this.resource.addOverride("egress.0", {
+      description: null,
+      prefix_list_ids: null,
+      security_groups: null,
+      self: null
+    })
+  }
+
+}
 export class AwsEcsFargateService extends Construct {
   constructor(scope: Construct, name: string, config: AwsEcsFargateServiceConfig) {
     super(scope, name);
@@ -45,39 +92,8 @@ export class AwsEcsFargateService extends Construct {
       family: name
     })
 
-
-    const securityGroup = new SecurityGroup(this, 'service-security-group', {
-      namePrefix: 'cdktf-demo',
-      vpcId: vpc.resource.id!,
-      ingress: [{
-        protocol: 'tcp',
-        fromPort: 80,
-        toPort: 80,
-        cidrBlocks: ['0.0.0.0/0'],
-        ipv6CidrBlocks: ["::/0"]
-      }],
-      egress: [{
-        protocol: '-1',
-        fromPort: 0,
-        toPort: 0,
-        cidrBlocks: ['0.0.0.0/0'],
-        ipv6CidrBlocks: ["::/0"]
-      }]
-    })
-
-    // workaround for https://github.com/hashicorp/terraform-cdk/issues/234
-    securityGroup.addOverride("ingress.0", {
-      description: null,
-      prefix_list_ids: null,
-      security_groups: null,
-      self: null
-    })
-
-    securityGroup.addOverride("egress.0", {
-      description: null,
-      prefix_list_ids: null,
-      security_groups: null,
-      self: null
+    const securityGroup = new AwsSecurityGroup(this, 'ecs-security-group', {
+      vpc
     })
 
     new EcsService(this, 'service', {
@@ -88,7 +104,7 @@ export class AwsEcsFargateService extends Construct {
       launchType: 'FARGATE',
       schedulingStrategy: 'REPLICA',
       networkConfiguration: [{
-        securityGroups: [securityGroup.id!],
+        securityGroups: [securityGroup.resource.id!],
         subnets: vpc.publicSubnets.map(subnet => subnet.id!),
         assignPublicIp: true
       }]
